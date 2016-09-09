@@ -1,0 +1,70 @@
+---
+- name: Make /etc/php5/conf.d
+  file: path=/etc/php5/conf.d state=directory
+
+- name: Copy file to /etc/php5/conf.d/mysql.ini
+  copy: src=files/mysql.ini dest=/etc/php5/conf.d/mysql.ini
+
+- name: Make /etc/apache2/sites-available/nextcloud.conf
+  file: path=/etc/apache2/sites-available/nextcloud.conf state=touch owner=root group=root mode=0755
+
+- name: Modify nextcloud.conf
+  blockinfile:
+    dest: /etc/apache2/sites-available/nextcloud.conf
+    marker: "# {mark} ANSIBLE MANAGED BLOCK"
+    block: |
+      Alias /nextcloud "/{{nc_root}}/{{nc_path}}/{{nc_dest}}"
+
+      <Directory /{{nc_root}}/{{nc_path}}/{{nc_dest}}>
+       Options +Indexes +FollowSymlinks +ExecCGI
+       AllowOverride All
+       Require all granted
+       Header always set Strict-Transport-Security "max-age=15768000; includeSubDomains; preload"
+      <IfModule mod_dav.c>
+       Dav off
+      </IfModule>
+
+       SetEnv HOME /{{nc_root}}/{{nc_path}}/{{nc_dest}}
+       SetEnv HTTP_HOME /{{nc_root}}/{{nc_path}}/{{nc_dest}}
+
+      </Directory>
+
+- name: Create symbolic link to nextcloud.conf
+  file: src=/etc/apache2/sites-available/nextcloud.conf dest=/etc/apache2/sites-enabled/nextcloud.conf state=link
+
+- name: Creates directories
+  file: path=/{{nc_root}}/{{nc_path}}/{{nc_dest}}/{{ item }} state=directory owner={{ htuser }} group={{ htgroup }}
+  with_items:
+    - data
+    - assets
+    - updater
+
+- name: Modify file and directory modes one
+  shell: find /{{nc_root}}/{{nc_path}}/{{nc_dest}}/ -type f -print0 | xargs -0 chmod 0755
+  ignore_errors: yes
+
+- name: Modify file and directory modes two
+  shell: find /{{nc_root}}/{{nc_path}}/{{nc_dest}}/ -type d -print0 | xargs -0 chmod 0755
+  ignore_errors: yes
+
+- name: Modify permissions on nc_dest
+  file: path=/{{nc_root}}/{{nc_path}}/{{nc_dest}} state=directory owner=root group={{ htgroup }}
+
+- name: Modify permissions on nc_dest subdirs
+  file: path=/{{nc_root}}/{{nc_path}}/{{nc_dest}}/{{ item }} state=directory owner={{ htuser }} group={{ htgroup }}
+  with_items:
+    - apps
+    - config
+    - themes
+
+- name: Grant executer priviledges
+  shell: chmod +x /{{nc_root}}/{{nc_path}}/{{nc_dest}}/occ
+
+- name: Modify .htaccess permissions one
+  file: path=/{{nc_root}}/{{nc_path}}/{{nc_dest}}/.htaccess state=touch mode=0644
+
+- name: Modify .htaccess permissions two
+  file: path=/{{nc_root}}/{{nc_path}}/{{nc_dest}}/data/.htaccess state=touch mode=0664
+
+- name: Modify .user.ini permissions to allow file size limit to be changed
+  file: path=/{{nc_root}}/{{nc_path}}/{{nc_dest}}/.user.ini state=touch owner=root group={{ htgroup }} mode=0775

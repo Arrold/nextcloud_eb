@@ -1,0 +1,57 @@
+---
+- name: Create infrastructure
+  hosts: all
+  gather_facts: False
+  connection: local
+  roles:
+    - role: infra
+      tags:
+        - clc
+
+- name: Install and configure MySQL
+  hosts: nc_servers
+  gather_facts: True
+  roles:
+    - role: mysql
+      tags:
+        - db
+
+- name: Get additional packages
+  hosts: nc_servers
+  gather_facts: True
+  roles:
+    - role: packages
+      tags:
+        - pkg
+
+- name: Install nextcloud
+  hosts: nc_servers
+  gather_facts: False
+  roles:
+    - role: nextcloud
+      tags:
+        - nextcloud
+
+- name: Copy mysql.ini and nextcloud.conf files over
+  hosts: nc_servers
+  gather_facts: False
+  roles:
+    - role: file_xfer
+      tags:
+        - config
+
+- name: Configure apache and postfix
+  hosts: nc_servers
+  gather_facts: False
+  roles:
+    - role: apache_postfix
+      tags:
+        - appost
+
+- name: Install and Enable Redis PHP module
+  hosts: nc_servers
+  gather_facts: False
+  roles:
+    - role: redis
+      tags:
+        - redistag
